@@ -1,0 +1,57 @@
+dyndns-login-cron
+=================
+
+Braindead script to match the braindead "log in every month" policy for free DynDNS accounts, stick it in your cron so that it runs at least once a month, it'll log you in and, well, that's it, that's all they wanted you to do, right?
+
+(Seriously Dyn, if you want to stop providing a free service, just stop providing it. Trying to piss people off until they go away is just an irritant that will destroy your reputation and any good will you've built up.)
+
+Installing
+==========
+
+I haven't released this as a proper Perl module, so you'll have to install dependencies manually:
+
+    sudo cpan \
+        Config::Tiny \
+        File::HomeDir \
+        File::Spec \
+        LWP::UserAgent \
+        HTML::Query \
+        Getopt::Long
+
+You can probably use `cpanm` if you have it installed and prefer.
+
+Configuration
+=============
+
+Credentials go in ~/.dyndns/credentials.ini (or ~/Library/Application Support/DynDns/credentials.ini on OS X):
+
+    username=myusername
+    password=mypassword
+
+It's probably a smart move to keep this file and dir `chmod 700` so other accounts can't access your password.
+
+If for some reason you need to read from a different config file, you can use the `--config=/path/to/config/file.ini` option.
+
+If you need to debug, use repeated invocations of `-d` to increase the debug level; `-dddd` should be enough to dump everything, including response contents.
+
+Caveats
+=======
+
+Like any page-scraping software it's extremely vulnerable to changes in the target site. So, while the script copes with the current dynamic form names and nonces it will no-doubt break at some point.
+
+Using this probably violates the DynDNS terms of service. I haven't checked, ain't nobody got time for that.
+
+The code is moderately awful, it's a quick hack-together of a few utility scripts, it could be made pretty, feel free to hack on it.
+
+Author
+======
+
+Sam Graham <dyndns-login-cron BLAHBLAH illusori.co.uk>
+
+Copyright and License
+=====================
+
+This software is copyright (c) 2013 by Sam Graham <dyndns-login-cron BLAHBLAH illusori.co.uk>.
+
+This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.

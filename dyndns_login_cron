@@ -1,0 +1,221 @@
+#!/usr/bin/perl -w
+
+use strict;
+use warnings;
+
+use Config::Tiny;
+use File::HomeDir;
+use File::Spec;
+
+use LWP::UserAgent;
+use HTML::Query;
+
+use Getopt::Long;
+#use Data::Dumper;
+
+# ------  Options handling -----
+
+my $dyndns_basesite   = 'https://account.dyn.com/entrance/';
+
+my ( $login_url, $debug, $config_file );
+
+$login_url  = $dyndns_basesite;
+$debug      = 0;
+
+my %get_options = ();
+
+$get_options{ 'url=s'    } = \$login_url;
+$get_options{ 'config=s' } = \$config_file;
+$get_options{ 'd+'       } = \$debug;
+
+Getopt::Long::Configure( 'gnu_getopt' );
+# Sweet error message. :P
+Getopt::Long::GetOptions( %get_options ) or die "Bad args."; # or pod2usage( 2 );
+
+die "Need index url." unless defined( $login_url );
+
+# ------  End of options handling -----
+
+my ( $ua, $last_fetch );
+
+my $ua_delay = 3;
+
+my %debug_levels = (
+    discover   => 1,
+    fetch      => 2,
+    backoff    => 3,
+    content    => 4,
+    );
+
+my $config = config( $config_file );
+
+my $nonce  = '';
+scrape_page( $login_url,
+    'form[action="/entrance/"]' =>
+        sub
+        {
+            # Extract nonce from the dynamicly-named form.
+            foreach my $form ( @_ )
+            {
+                next unless $form->attr( 'id' ) =~ /^login/;
+                $form = HTML::Query->new( tree => $form );
+
+                my $el = $form->query('input[name="multiform"]' );
+                next unless $el->size();
+                $nonce = $el->first()->attr( 'value' );
+                debug( 'discover', "Found nonce '$nonce'.\n" );
+            }
+        },
+    );
+die "No nonce found, maybe the form has changed?\n" unless $nonce;
+
+my $supress_void_context_warning = fetch_content( $login_url, 'POST',
+    {
+        username  => $config->{ _ }->{ username },
+        password  => $config->{ _ }->{ password },
+        multiform => $nonce,
+        submit    => 'Log in',
+    } );
+
+print "Done.\n";
+exit( 0 );
+
+sub debug
+{
+    my ( $type, $message ) = @_;
+
+    return unless $debug_levels{ $type } <= $debug;
+    print $message;
+}
+
+sub scrape_page
+{
+    my $url = shift;
+    my %scrapers = @_;
+    my ( $content, $query );
+
+    debug( 'fetch', "Looking for $url.\n" );
+
+    return unless $content = fetch_content( $url );
+
+    $query = HTML::Query->new( text => $content );
+
+    foreach my $rule ( keys( %scrapers ) )
+    {
+        my ( @elements );
+
+        $scrapers{ $rule }->( @elements )
+            if @elements = $query->query( $rule )->get_elements();
+    }
+}
+
+sub fetch_content
+{
+    my ( $url, $method, $param ) = @_;
+    my ( $response );
+
+    unless( $ua )
+    {
+        $ua = LWP::UserAgent->new(
+            agent => 'Mozilla/5.0 (X11; U; Linux i686; en-US; rv:1.9.0.4) Gecko/2008102920 Firefox/3.0.4',
+            );
+        $ua->protocols_allowed( [ 'http', 'https' ] );
+        push @{ $ua->requests_redirectable }, 'POST';
+        $ua->cookie_jar( {} );
+    }
+
+    while( defined( $last_fetch ) and ( $last_fetch + $ua_delay ) > time() )
+    {
+        my ( $sleepfor );
+
+        $sleepfor = $last_fetch + $ua_delay - time();
+        debug( 'backoff', "Sleeping for ${sleepfor}s before fetch.\n" );
+        sleep( $sleepfor );
+    }
+
+    $method = 'GET' unless defined $method;
+    $param  = {}    unless defined $param;
+
+    #  Paranoid enclosure of the fetch in timestamp sets to ensure
+    #  we a) always set it, b) it's set to the time after we finish
+    #  the request if possible.  While single-threaded this is
+    #  overkill, but once we share the timestamp it becomes important.
+    $last_fetch = time() + 60;  #  Future in case the fetch takes a while.
+    if( $method eq 'GET' )
+    {
+        debug( 'fetch', "GET $url\n" );
+        $response = $ua->get( $url );
+    }
+    else
+    {
+        debug( 'fetch', "POST $url\n"
+            #. Data::Dumper::Dumper( $param ) . "\n"
+            );
+        $response = $ua->post( $url,
+            referer => $url,
+            Content => $param
+            );
+    }
+    $last_fetch = time();
+
+    debug( 'content', $response->content() );
+
+    return( $response->content() ) if $response->is_success();
+
+    die "Fetch failed: " . $response->status_line();
+}
+
+sub _config_dir
+{
+    my ( $leaf_dir, $config_dir );
+
+    #  Following lifted from File::UserDir.
+    #  I'd use that directly but it forces creation and population of the dir.
+
+    # Derive from the caller based on HomeDir naming scheme
+    my $scheme = $File::HomeDir::IMPLEMENTED_BY or
+        die "Failed to find File::HomeDir naming scheme";
+    if( $scheme->isa( 'File::HomeDir::Darwin' ) or
+        $scheme->isa( 'File::HomeDir::Windows' ) )
+    {
+        $leaf_dir = 'DynDns';
+    }
+    elsif( $scheme->isa('File::HomeDir::Unix') )
+    {
+        $leaf_dir = '.dyndns';
+    }
+    else
+    {
+        die "Unsupported HomeDir naming scheme $scheme";
+    }
+
+    $config_dir = File::Spec->catdir(
+        File::HomeDir->my_data(),
+        $leaf_dir
+        );
+
+    return( $config_dir );
+}
+
+sub _config_file
+{
+    my ( $config_dir, $config_file );
+
+    return( undef ) unless $config_dir = _config_dir();
+
+    $config_file = File::Spec->catfile( $config_dir, 'credentials.ini' );
+    return( $config_file );
+}
+
+sub config
+{
+    my ( $config_file ) = @_;
+    my ( $config );
+
+    $config_file = _config_file() unless defined $config_file;
+    die "Unable to find config file '$config_file'" unless $config_file and -e $config_file;
+    $config = Config::Tiny->read( $config_file ) or
+        die "Error reading '$config_file': " . Config::Tiny->errstr();
+
+    return( $config );
+}
