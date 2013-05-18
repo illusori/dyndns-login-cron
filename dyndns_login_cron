@@ -69,15 +69,19 @@ scrape_page( $login_url,
     );
 die "No nonce found, maybe the form has changed?\n" unless $nonce;
 
-my $supress_void_context_warning = fetch_content( $login_url, 'POST',
+my $content = fetch_content( $login_url, 'POST',
     {
         username  => $config->{ _ }->{ username },
         password  => $config->{ _ }->{ password },
         multiform => $nonce,
         submit    => 'Log in',
     } );
+my $q = HTML::Query->new( text => $content );
+my $title = $q->query('title')->first()->as_trimmed_text();
 
-print "Done.\n";
+die "Login failure? Page title: '$title'\n" unless $title =~ /My Dyn Account/i;
+
+print "Success.\n";
 exit( 0 );
 
 sub debug
