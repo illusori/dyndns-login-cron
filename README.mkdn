@@ -46,12 +46,12 @@ The code is moderately awful, it's a quick hack-together of a few utility script
 Author
 ======
 
-Sam Graham <dyndns-login-cron BLAHBLAH illusori.co.uk>
+Sam Graham (dyndns-login-cron BLAHBLAH illusori.co.uk).
 
 Copyright and License
 =====================
 
-This software is copyright (c) 2013 by Sam Graham <dyndns-login-cron BLAHBLAH illusori.co.uk>.
+This software is copyright (c) 2013 by Sam Graham (dyndns-login-cron BLAHBLAH illusori.co.uk).
 
 This is free software; you can redistribute it and/or modify it under
 the same terms as the Perl 5 programming language system itself.
