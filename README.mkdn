@@ -14,7 +14,9 @@ I haven't released this as a proper Perl module, so you'll have to install depen
         Config::Tiny \
         File::HomeDir \
         File::Spec \
-        LWP::UserAgent \
+        Crypt::SSLeay \
+        LWP \
+        LWP::Protocol::https \
         HTML::Query \
         Getopt::Long
 
