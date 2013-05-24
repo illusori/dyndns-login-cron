@@ -36,9 +36,9 @@ If for some reason you need to read from a different config file, you can use th
 
 If you need to debug, use repeated invocations of `-d` to increase the debug level; `-dddd` should be enough to dump everything, including response contents.
 
-If you're on OS X, there's a LaunchAgent plist in the `os_x` dir. Edit it to point at whereever you saved the `dyndns_login_cron` script and save it to `~/Library/LaunchAgents/' folder and it'll run at 3 minutes past midnight every day.
+If you're on OS X, there's a LaunchAgent plist in the `os_x` dir. Edit it to point at whereever you saved the `dyndns_login_cron` script and save it to `~/Library/LaunchAgents/` folder and it'll run at 3 minutes past midnight every day.
 
-I run it on Debian and just drop a link in /etc/cron.weekly.
+I run it on Debian and just drop a link in `/etc/cron.weekly`.
 
 Caveats
 =======
